@@ -1,0 +1,78 @@
+version: "3"
+
+services:  
+
+  producer:
+    image: gradle:6.9-jdk11
+    container_name: producer
+    command: sh run.sh
+    working_dir: /app
+    volumes:
+      - ./producer:/app
+      - ./producer/repository:/home/gradle/.gradle/caches
+    ports:
+      - 8000:8000
+      - 8005:8005
+    depends_on: 
+      - kafka
+    networks:
+      - kafka-local
+
+  consumer:
+    image: gradle:6.9-jdk11
+    container_name: consumer
+    command: sh run.sh
+    working_dir: /app
+    volumes:
+      - ./consumer:/app
+      - ./consumer/repository:/home/gradle/.gradle/caches
+    ports:
+      - 9000:9000
+      - 9005:9005
+    depends_on: 
+      - kafka
+    networks:
+      - kafka-local
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks:
+      - kafka-local
+
+  kafka:
+    image: confluentinc/cp-kafka:5.2.7-1
+    container_name: kafka
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: INTERNAL://:9092,OUTSIDE://:9094
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,OUTSIDE://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,OUTSIDE:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "9094:9094"
+    networks:
+      - kafka-local
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop
+    container_name: kafdrop
+    environment:
+      KAFKA_BROKERCONNECT: kafka:9092
+    depends_on:
+      - kafka
+    ports:
+      - 19000:9000
+    networks:
+      - kafka-local
+
+networks:
+  kafka-local:
+    driver: bridge
